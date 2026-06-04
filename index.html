@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詐騙模擬器：逆向思考（防詐對話遊戲）</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for certificate rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 針對淺色調微調陰影與發光效果 */
+        .neon-glow-green {
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
+        .neon-glow-purple {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+        }
+        .neon-text-green {
+            text-shadow: 0 0 4px rgba(34, 197, 94, 0.3);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between font-sans overflow-x-hidden selection:bg-purple-100 selection:text-purple-900">
+
+    <!-- Header / Status Bar -->
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-purple-500 to-emerald-400 flex items-center justify-center font-black text-white text-xl shadow-md">
+                    🕵️
+                </div>
+                <div>
+                    <h1 class="text-sm md:text-base font-extrabold tracking-wider bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                        詐騙模擬器：逆向思考
+                    </h1>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">Scam Simulator: Reverse Thinking</p>
+                </div>
+            </div>
+            
+            <!-- Progress/Score indicator (shown when game is active) -->
+            <div id="game-stats" class="hidden flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs text-slate-500">詐騙實習生評分</p>
+                    <div class="flex items-center space-x-1">
+                        <span id="stat-level" class="text-xs font-bold text-purple-600">關卡 1/3</span>
+                    </div>
+                </div>
+                <!-- Scam Progress bar -->
+                <div class="w-24 md:w-36 bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                    <div id="scam-efficiency-bar" class="bg-gradient-to-r from-rose-500 via-purple-500 to-emerald-400 h-full w-0 transition-all duration-500"></div>
+                </div>
+                <div class="text-center bg-slate-50 px-2.5 py-1 rounded border border-slate-200 shadow-sm">
+                    <span id="scam-score-text" class="text-xs font-mono font-bold text-purple-600">0%</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex items-center justify-center p-4 md:p-8 max-w-6xl mx-auto w-full">
+        
+        <!-- ================= SCREEN 1: INTRO / REGISTRATION (LIGHT MODE) ================= -->
+        <section id="screen-intro" class="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 md:p-10 shadow-xl transition-all duration-500 transform hover:scale-[1.01]">
+            <div class="text-center mb-8">
+                <div class="inline-block px-3 py-1 bg-rose-50 border border-rose-200 text-rose-600 rounded-full text-xs font-bold mb-4 tracking-wider animate-pulse">
+                    ⚠️ 限制級實習生招募中
+                </div>
+                <h2 class="text-3xl md:text-5xl font-black mb-3 tracking-tight text-slate-900">
+                    歡迎來到 <br class="sm:hidden">
+                    <span class="bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">黑心企業實習基地</span>
+                </h2>
+                <p class="text-slate-600 text-sm md:text-base max-w-md mx-auto leading-relaxed">
+                    逆向思考防詐術！今天你將扮演一名詐騙集團實習生，親自設計那些「免費貼圖」、「限時好康」來誘人上鉤，看清詐騙手段的底層邏輯。
+                </p>
+            </div>
+
+            <!-- Mascot Mentor A Introduction Card -->
+            <div class="flex items-start bg-purple-50/60 p-4 rounded-xl border border-purple-100 mb-8 space-x-4">
+                <div class="text-4xl select-none pt-1">😈</div>
+                <div>
+                    <h4 class="font-bold text-purple-800 text-sm md:text-base">黑心實習導師 A：</h4>
+                    <p class="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
+                        「嘿嘿，新來的！準備好用最少的成本、最精準的心理學，把那些愛貪便宜的笨蛋騙得團團轉了嗎？完成實習還可以拿到『結業證明』喔！」
+                    </p>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="space-y-4 max-w-md mx-auto">
+                <div>
+                    <label for="player-name" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">請輸入您的實習生代號 (姓名)：</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="fa-solid fa-user-secret"></i>
+                        </span>
+                        <input type="text" id="player-name" placeholder="例如：防詐神探小明" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all font-medium text-sm">
+                    </div>
+                </div>
+                
+                <button onclick="startGame()" class="w-full bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-500 hover:to-emerald-400 text-white font-black py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-purple-200 transform hover:-translate-y-0.5 active:translate-y-0 tracking-widest flex items-center justify-center space-x-2 text-base md:text-lg">
+                    <span>開始實習（深入虎穴）</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <div class="mt-8 text-center text-xs text-slate-400">
+                💡 本遊戲僅供防範詐騙教育使用，所展示手段皆為剖析心理陷阱。
+            </div>
+        </section>
+
+        <!-- ================= SCREEN 2: GAMEPLAY (LEVELS) ================= -->
+        <section id="screen-game" class="hidden w-full max-w-3xl bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl transition-all duration-500">
+            <!-- Level Indicator Header -->
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center space-x-2">
+                    <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 border border-purple-100 font-bold text-xs" id="level-badge">關卡 1</span>
+                    <h3 class="font-extrabold text-sm md:text-base text-slate-800" id="level-title">設計節慶貼圖誘餌</h3>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-slate-500">目前黑心指數：</span>
+                    <span class="font-mono font-bold text-purple-600" id="current-efficiency-score">0%</span>
+                </div>
+            </div>
+
+            <!-- Dialogue Interaction Area -->
+            <div class="p-6 space-y-6">
+                <!-- Mentor Avatar and Text Bubble -->
+                <div class="flex items-start space-x-4">
+                    <div class="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-3xl shrink-0 shadow-sm relative">
+                        😈
+                        <span class="absolute -bottom-1 -right-1 bg-rose-500 text-[9px] font-black px-1 py-0.5 rounded text-white tracking-wider uppercase scale-90">Mentor</span>
+                    </div>
+                    <div class="flex-grow bg-purple-50/50 border border-purple-100 rounded-2xl p-4 relative">
+                        <div class="absolute top-4 -left-2 w-3 h-3 bg-white border-l border-b border-purple-100 rotate-45" style="background-color: rgb(250, 245, 255);"></div>
+                        <h4 class="font-bold text-purple-700 text-xs mb-1">黑心實習導師 A</h4>
+                        <p class="text-slate-700 text-sm md:text-base leading-relaxed" id="mentor-bubble">
+                            正在載入任務...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Live Scenario Preview -->
+                <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center min-h-[120px] transition-all shadow-inner">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 self-start"><i class="fa-solid fa-laptop-code mr-1"></i> 詐騙誘餌即時模擬器網頁</div>
+                    <div id="scenario-preview-box" class="w-full bg-white border border-slate-200 rounded-lg p-3 text-center transition-all duration-300 shadow-sm">
+                        <div class="text-slate-400 text-xs italic">尚未完成設計，請在下方選擇策略...</div>
+                    </div>
+                </div>
+
+                <!-- Options Grid -->
+                <div class="space-y-3" id="options-container">
+                    <!-- Dynamic buttons will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Next Screen / Feedback Footer -->
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                <div class="text-xs text-slate-500" id="interaction-hint">
+                    請點選最能利用人性弱點的「黑心方案」！
+                </div>
+                <button id="next-level-btn" disabled onclick="handleNextStep()" class="bg-slate-200 text-slate-400 cursor-not-allowed font-bold py-2.5 px-6 rounded-lg transition-all text-sm flex items-center space-x-1">
+                    <span>繼續下一步</span>
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- ================= SCREEN 3: REVEAL & AWAKENING (LIGHT MODE) ================= -->
+        <section id="screen-reveal" class="hidden w-full max-w-2xl bg-gradient-to-b from-blue-50/50 via-white to-slate-50 border border-blue-100 rounded-2xl p-6 md:p-10 shadow-xl relative overflow-hidden transition-all duration-700">
+            <!-- Background glow -->
+            <div class="absolute -top-40 -left-40 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="text-center relative z-10">
+                <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center mx-auto mb-6 shadow-md shadow-amber-200 animate-bounce-slow">
+                    <i class="fa-solid fa-shield-halved text-white text-4xl"></i>
+                </div>
+                
+                <h2 class="text-3xl md:text-5xl font-extrabold mb-4 bg-gradient-to-r from-blue-700 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
+                    實習結束！大腦覺醒！
+                </h2>
+                
+                <p class="text-amber-600 font-bold tracking-wider text-sm md:text-base uppercase mb-6">
+                    🚨 反向解鎖詐騙集團的底層邏輯
+                </p>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left mb-8 space-y-4 leading-relaxed text-sm text-slate-600 shadow-sm">
+                    <div class="flex items-start space-x-3">
+                        <span class="text-xl">💡</span>
+                        <p><strong class="text-slate-800">「免費貼圖要分享？」</strong> 原來這不是官方活動，而是利用你想「分享好康」的心態，擴大受害範圍，讓親友自動幫詐騙宣傳！</p>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <span class="text-xl">⏰</span>
+                        <p><strong class="text-slate-800">「限時倒數只剩幾分鐘？」</strong> 這是心理學上的<strong>時間勒索</strong>，用緊急感和驚慌感關閉你的理智，逼你來不及查證就動手點擊！</p>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <span class="text-xl">🔒</span>
+                        <p><strong class="text-slate-800">「要求輸入密碼和驗證碼？」</strong> 這是最後的致命收割。官方系統絕不會在非官網要你提供驗證碼。只要給出去，你的帳號就會瞬間被盜走！</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-slate-700 text-xs md:text-sm mb-8">
+                    <p class="font-bold text-blue-800 mb-1">🎉 恭喜你！代號「<span id="reveal-username" class="underline text-indigo-600">偵探</span>」</p>
+                    你已經成功掌握了詐騙集團的「釣魚配方」。以後遇到奇怪的連結，你就能直覺看穿他們的詭計！
+                </div>
+
+                <button onclick="goToCertificateScreen()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-black py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-yellow-100 transform hover:-translate-y-0.5 active:translate-y-0 tracking-widest text-base md:text-lg">
+                    領取「校園防詐特攻隊長」結業證書 <i class="fa-solid fa-certificate ml-1"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- ================= SCREEN 4: CERTIFICATE & CAMERA (LIGHT MODE) ================= -->
+        <section id="screen-certificate" class="hidden w-full max-w-5xl bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xl transition-all duration-500">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                <!-- Left panel: Camera & Customization -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 text-sm mb-3 flex items-center">
+                            <i class="fa-solid fa-camera mr-2 text-yellow-500"></i> 1. 為證書添加個人相片
+                        </h4>
+                        
+                        <!-- Webcam View Container -->
+                        <div class="relative bg-slate-200 rounded-lg overflow-hidden aspect-video border border-slate-300 flex flex-col items-center justify-center shadow-inner">
+                            <!-- Stream element -->
+                            <video id="webcam-stream" class="absolute inset-0 w-full h-full object-cover hidden" autoplay playsinline></video>
+                            
+                            <!-- Snapshot preview element -->
+                            <img id="snapshot-preview" class="absolute inset-0 w-full h-full object-cover hidden" alt="Selfie preview">
+                            
+                            <!-- Static placeholder when webcam is off -->
+                            <div id="camera-placeholder" class="text-center p-4">
+                                <span class="text-4xl block mb-2">📸</span>
+                                <p class="text-xs text-slate-600 font-semibold">開啟相機拍照，製作真實感十足的證書！</p>
+                                <p class="text-[10px] text-slate-500 mt-1">(需要瀏覽器授權鏡頭權限)</p>
+                            </div>
+                        </div>
+
+                        <!-- Camera Action Buttons -->
+                        <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                            <button id="btn-start-camera" onclick="startCamera()" class="flex-1 min-w-[120px] bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 py-2 px-3 rounded text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm">
+                                <i class="fa-solid fa-video text-slate-500"></i>
+                                <span>啟動相機</span>
+                            </button>
+                            <button id="btn-take-snapshot" disabled onclick="takeSnapshot()" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-400 text-white py-2 px-3 rounded text-xs font-bold transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                                <i class="fa-solid fa-circle-dot"></i>
+                                <span>按此拍照</span>
+                            </button>
+                            <button id="btn-reset-camera" class="hidden flex-1 min-w-[120px] bg-red-500 hover:bg-red-400 text-white py-2 px-3 rounded text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm">
+                                <i class="fa-solid fa-arrow-rotate-left"></i>
+                                <span>重新拍攝</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: Choose Avatar -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 text-sm mb-3 flex items-center">
+                            <i class="fa-solid fa-masks-theater mr-2 text-indigo-500"></i> 或：選用Q版防詐頭像
+                        </h4>
+                        <div class="grid grid-cols-5 gap-2" id="avatar-grid">
+                            <!-- Dynamically generated avatars -->
+                        </div>
+                    </div>
+
+                    <!-- Change Name Input -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <label for="cert-name-input" class="block text-xs font-bold text-slate-500 mb-2">修改證書顯示姓名：</label>
+                        <input type="text" id="cert-name-input" oninput="updateCertName(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-400 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Right panel: Interactive Certificate Render View -->
+                <div class="lg:col-span-7 flex flex-col items-center">
+                    <h4 class="font-bold text-slate-700 text-sm mb-3 self-start flex items-center">
+                        <i class="fa-solid fa-eye mr-2 text-emerald-500"></i> 證書預覽區 (完成後可直接下載為圖片)
+                    </h4>
+                    
+                    <!-- THE CERTIFICATE BOARD (Captured by html2canvas) - Removed aspect-[4/3] to support vertical content fluidly -->
+                    <div id="certificate-card" class="w-full max-w-[500px] bg-slate-50 text-slate-900 border-[12px] border-double border-yellow-600 rounded-2xl p-5 relative shadow-lg overflow-hidden flex flex-col justify-between selection:bg-slate-200 min-h-[500px]">
+                        <!-- Premium Background Pattern Overlay -->
+                        <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#000 1.5px, transparent 1.5px), radial-gradient(#000 1.5px, #f1f5f9 1.5px); background-size: 30px 30px; background-position: 0 0, 15px 15px;"></div>
+                        <!-- Decorative Corners -->
+                        <div class="absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-yellow-700"></div>
+                        <div class="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-yellow-700"></div>
+                        <div class="absolute bottom-2 left-2 w-8 h-8 border-b-2 border-l-2 border-yellow-700"></div>
+                        <div class="absolute bottom-2 right-2 w-8 h-8 border-b-2 border-r-2 border-yellow-700"></div>
+
+                        <!-- Top Title Info -->
+                        <div class="text-center relative z-10">
+                            <div class="text-xs font-bold tracking-widest text-yellow-700 uppercase mb-1">數位安全特攻聯盟</div>
+                            <h3 class="text-lg md:text-xl font-black text-slate-900 tracking-wide border-b-2 border-yellow-600/40 pb-1.5 inline-block px-4">
+                                防詐偵探結業證書
+                            </h3>
+                        </div>
+
+                        <!-- Certificate Body Row (Left: Description, Right: Portrait Box) -->
+                        <div class="grid grid-cols-12 gap-3 items-center my-2 relative z-10">
+                            <div class="col-span-8 space-y-1.5">
+                                <p class="text-[11px] text-slate-600 leading-relaxed">
+                                    茲證明學生 <span id="cert-player-name" class="font-black text-sm text-slate-900 border-b border-slate-950 px-1 font-sans">特攻實習生</span>，於西元 2026 年完成《詐騙模擬器：逆向思考》防詐培訓。
+                                </p>
+                                <p class="text-[9px] md:text-[10px] text-slate-700 leading-normal">
+                                    此生成功看穿「免費貼圖」、「時間勒索」以及「仿真釣魚」之心理學誘餌，並能克制貪小便宜與恐慌情緒。特頒此證，封為：
+                                </p>
+                                <div class="inline-block bg-yellow-600 text-white font-extrabold text-[10px] md:text-xs px-2 py-0.5 rounded shadow-sm">
+                                    🏅 校園防詐特攻隊長
+                                </div>
+                            </div>
+
+                            <!-- Photo/Avatar Display Area -->
+                            <div class="col-span-4 flex flex-col items-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-lg bg-white border-2 border-yellow-700 overflow-hidden shadow-md flex items-center justify-center relative">
+                                    <img id="cert-photo" src="" class="w-full h-full object-cover hidden">
+                                    <span id="cert-avatar-placeholder" class="text-3xl">🕵️</span>
+                                </div>
+                                <span class="text-[7px] text-slate-500 mt-0.5 uppercase tracking-widest font-mono">隊員肖像</span>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Scam Exhibits Section (Displays selected mockups) -->
+                        <div class="border border-slate-200 bg-white/80 rounded-lg p-2 text-left relative z-10 my-1.5 shadow-inner">
+                            <p class="text-[8px] font-black text-slate-500 mb-1 flex items-center uppercase tracking-wider">
+                                <i class="fa-solid fa-microscope text-purple-500 mr-1 animate-pulse"></i> 實作鑑識：此生在模擬中所破解的「詐騙陷阱」
+                            </p>
+                            <div id="cert-scam-exhibits" class="grid grid-cols-3 gap-1.5 text-[7px]">
+                                <!-- Dynamic miniature elements will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Certificate Footer -->
+                        <div class="flex justify-between items-end border-t border-slate-300 pt-2 relative z-10">
+                            <div class="text-[7px] md:text-[8px] text-slate-500 italic font-medium max-w-[70%] leading-tight">
+                                💡 防詐金句：「免費貼圖要分享？ suspicious！輸入認證碼？絕對不給！」
+                            </div>
+                            <!-- Cute Gold Seal -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-tr from-yellow-600 to-amber-400 rounded-full flex items-center justify-center shadow-md relative">
+                                    <!-- Star SVG inside Seal -->
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                    <div class="absolute -bottom-1.5 text-[6px] bg-slate-900 text-yellow-400 font-bold px-1 rounded uppercase scale-75 whitespace-nowrap">聯盟認證</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="mt-6 w-full max-w-[500px] flex flex-col sm:flex-row gap-3">
+                        <button onclick="downloadCertificate()" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black py-3 px-5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-emerald-100 flex items-center justify-center space-x-2 text-sm md:text-base">
+                            <i class="fa-solid fa-cloud-arrow-down"></i>
+                            <span>下載證書 PNG</span>
+                        </button>
+                        <button onclick="restartFullGame()" class="sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-5 rounded-xl transition-all text-sm flex items-center justify-center space-x-1.5 shadow-sm">
+                            <i class="fa-solid fa-rotate-right"></i>
+                            <span>重新挑戰</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-8 space-y-2">
+        <p>💡 學校防詐宣導・互動教具 | 設計靈感源自 LINE《防詐培訓營》反向思考教學法</p>
+        <p class="text-slate-400">&copy; 2026 防詐數位偵探聯盟. 本系統完全於客戶端安全執行，絕不上傳您的個人頭像或數據。</p>
+    </footer>
+
+    <script>
+        // Global Game State
+        const gameState = {
+            currentScreen: 'intro',
+            playerName: '防詐神探',
+            currentLevelIndex: 0,
+            score: 0, // Scam Intern score
+            selectedAvatar: '🕵️',
+            selfieDataUrl: null,
+            cameraStream: null,
+            chosenPreviews: {}        };
+
+        // Static Level Data Definitions
+        const levels = [
+            {
+                title: "設計節慶貼圖誘餌",
+                mentorSpeech: "下週就是端午節（或聖誕節）了，我們要設計一個假訊息。你覺得用什麼當誘餌，最容易讓現代小學生或一般人忍不住點下去？",
+                options: [
+                    {
+                        text: "填問卷送「星巴克買一送一券」。",
+                        efficiency: 40,
+                        feedback: "嘖，過時了！現在很多小孩根本不喝星巴克！這只能騙到上班族，我們要更廣的受眾！",
+                        preview: `
+                            <div class="border border-slate-200 p-2 rounded bg-slate-50 text-left text-xs text-slate-500">
+                                <span class="text-emerald-600 font-bold">🚨 LINE 轉傳訊息：</span><br>
+                                「星巴克慶端午！填寫問卷就免費送一杯星冰樂特大杯...」
+                            </div>
+                        `
+                    },
+                    {
+                        text: "點連結限時免費下載「LINE 官方正版動態貼圖」。",
+                        efficiency: 100,
+                        feedback: "聰明！免費又限時的正版貼圖，不論大人小孩都想要！這就是最好的糖衣誘餌！",
+                        preview: `
+                            <div class="border-2 border-emerald-500/50 p-2 rounded bg-emerald-50 text-left text-xs text-slate-700">
+                                <span class="text-emerald-600 font-bold">🔥 限時免費貼圖下載：</span><br>
+                                「慶端午！LINE 與知名插畫家聯名貼圖，點選以下網址即刻下載 👇...」
+                            </div>
+                        `
+                    },
+                    {
+                        text: "邀請加入「高獲利飆股投資 LINE 群組」。",
+                        efficiency: 20,
+                        feedback: "你是想騙阿公阿嬤嗎？現在年輕族群看到這四個字，早就直接檢舉了，投資誘餌對這族群效率太差！",
+                        preview: `
+                            <div class="border border-slate-200 p-2 rounded bg-slate-50 text-left text-xs text-slate-500">
+                                <span class="text-red-600 font-bold">⚠️ 投資分享：</span><br>
+                                「加入劉老師飆股社團，帶你操作三檔翻倍股...」
+                            </div>
+                        `
+                    }
+                ],
+                // Viral mechanism follow-up
+                followUp: {
+                    mentorSpeech: "太棒了！大家都被免費貼圖吸引進來了。接下來，為了讓這訊息像病毒一樣自動傳開，我們要在網頁加上什麼限制？",
+                    options: [
+                        {
+                            text: "放上「直接下載檔案」按鈕。",
+                            efficiency: 30,
+                            feedback: "這樣他自己下載完就走了！怎麼幫我們帶進更多受害者？真是不會做生意！",
+                            preview: `
+                                <div class="mt-2 text-center">
+                                    <button class="bg-slate-300 text-slate-700 text-[10px] px-2 py-1 rounded">直接下載</button>
+                                </div>
+                            `
+                        },
+                        {
+                            text: "「分享給 3 個群組或 10 位好友，即可領取貼圖」的按鈕。",
+                            efficiency: 100,
+                            feedback: "完全正確！利用人們『貪小便宜』和『好東西與朋友分享』的心理，他們會主動幫我們散播！我們完全不用花力氣！",
+                            preview: `
+                                <div class="mt-2 bg-emerald-50/50 p-2 rounded text-[10px] text-slate-600 border border-emerald-200">
+                                    <p class="text-rose-600 font-bold mb-1">🎁 領取進度：33%</p>
+                                    <p>請再分享至 3 個群組才能啟動下載！</p>
+                                    <button class="bg-emerald-600 text-white font-bold px-2 py-1 rounded mt-1 w-full text-[9px]"><i class="fa-brands fa-line mr-1"></i> 分享給好友</button>
+                                </div>
+                            `
+                        }
+                    ]
+                }
+            },
+            {
+                title: "情緒勒索的催化劑",
+                mentorSpeech: "假網頁和分享機制都設計好了。但有些人點進去之後會起疑心、開始猶豫。我們要加上什麼「心理催化劑」，逼他們瞬間失去理智、立刻動手？",
+                options: [
+                    {
+                        text: "寫上「請慢慢考慮喔，活動到下個月底為止」。",
+                        efficiency: 10,
+                        feedback: "你是來做慈善的嗎？！給他這麼多時間思考，他跑去問警察、問家長不就穿幫了！重選！",
+                        preview: `
+                            <div class="border border-slate-200 p-2 rounded bg-slate-50 text-xs text-slate-500">
+                                「本活動自即日起舉辦至 2026/07/31 止，請安心領取。」
+                            </div>
+                        `
+                    },
+                    {
+                        text: "加上倒數計時器「活動僅剩 1 分 30 秒，已有 9,487 人成功領取！」並跳出「您的個資安全已被系統保護」綠色框。",
+                        efficiency: 100,
+                        feedback: "物理性催眠！製造『時間壓力（搶不到）』與『社會認同（別人都拿了）』。人類大腦一慌，理智直接當機！",
+                        preview: `
+                            <div class="border border-rose-300 p-2 rounded bg-rose-50 text-center text-xs">
+                                <span class="bg-rose-500 text-white font-bold px-1.5 py-0.5 rounded text-[9px] animate-pulse">限時</span>
+                                <span class="text-rose-600 font-mono font-bold ml-1">剩餘 01:29</span>
+                                <p class="text-[10px] text-slate-500 mt-1">🔥 已有 9,847 人完成領取</p>
+                            </div>
+                        `
+                    }
+                ]
+            },
+            {
+                title: "最後的致命收割",
+                mentorSpeech: "最後一步！當他們完成分享，大腦已經被興奮感和緊張感佔滿了。網頁此時要跳出什麼，才能神不知鬼不覺偷走他們的 LINE 帳號或個資？",
+                options: [
+                    {
+                        text: "請他們輸入姓名、電話與身份證字號。",
+                        efficiency: 50,
+                        feedback: "這雖然拿到個資，但很容易讓人起疑，而且沒辦法直接拿到帳號控制權去騙他的親友。還有更好的方法！",
+                        preview: `
+                            <div class="border border-slate-200 p-2 rounded bg-slate-50 text-left text-[10px] space-y-1">
+                                <label class="text-slate-500">姓名：</label> <input type="text" class="bg-slate-100 border border-slate-200 w-full" disabled><br>
+                                <label class="text-slate-500">身份證：</label> <input type="text" class="bg-slate-100 border border-slate-200 w-full" disabled>
+                            </div>
+                        `
+                    },
+                    {
+                        text: "跳出仿真的「LINE 登入頁面」，要求輸入帳號、密碼，並隨後要求填入「簡訊認證碼 (OTP)」。",
+                        efficiency: 100,
+                        feedback: "太有天分了！只要拿到密碼和簡訊雙重認證碼，我們就能瞬間在他不知情的情況下，登入他的 LINE，改掉密碼、盜用他的身分去向他的爸媽和同學借錢！",
+                        preview: `
+                            <div class="border-2 border-yellow-500 p-2 rounded bg-amber-50/50 text-center text-[10px] space-y-1 shadow-sm">
+                                <div class="bg-emerald-600 text-white font-bold p-1 rounded">LINE 帳號安全驗證</div>
+                                <input type="text" placeholder="電話號碼 / 電子郵件" class="bg-white border border-slate-200 text-slate-700 w-full text-[9px] p-1 rounded" disabled>
+                                <input type="password" placeholder="密碼" class="bg-white border border-slate-200 text-slate-700 w-full text-[9px] p-1 rounded" disabled>
+                                <input type="text" placeholder="輸入 4 位數驗證碼" class="bg-white border border-rose-300 text-rose-600 w-full text-[9px] p-1 rounded" disabled>
+                            </div>
+                        `
+                    }
+                ]
+            }
+        ];
+
+        // Custom detective avatars for selection
+        const detectiveAvatars = ['🕵️', '🕵️‍♀️', '😎', '🦉', '🐱', '🦊', '🦁', '🛡️', '💻', '💡'];
+
+        // Window Load Start
+        window.onload = function() {
+            initAvatars();
+            document.getElementById('player-name').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    startGame();
+                }
+            });
+        };
+
+        // Initialize predefined avatars
+        function initAvatars() {
+            const grid = document.getElementById('avatar-grid');
+            grid.innerHTML = '';
+            detectiveAvatars.forEach(avatar => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = "w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xl hover:bg-slate-50 hover:border-yellow-500 transition-all transform active:scale-95 shadow-sm";
+                btn.innerHTML = avatar;
+                btn.onclick = () => selectPredefinedAvatar(avatar);
+                grid.appendChild(btn);
+            });
+        }
+
+        // Handle Avatar Selection
+        function selectPredefinedAvatar(avatar) {
+            gameState.selectedAvatar = avatar;
+            gameState.selfieDataUrl = null;
+            
+            // Stop camera if running
+            stopCamera();
+            
+            // Hide preview, show placeholder
+            document.getElementById('snapshot-preview').classList.add('hidden');
+            document.getElementById('camera-placeholder').classList.remove('hidden');
+            document.getElementById('cert-photo').classList.add('hidden');
+            
+            // Update certificate visual placeholder
+            const placeholder = document.getElementById('cert-avatar-placeholder');
+            placeholder.innerHTML = avatar;
+            placeholder.classList.remove('hidden');
+            
+            // UI feedback highlight
+            showFeedbackToast(`已選用頭像：${avatar}`);
+        }
+
+        // Start Game Navigation
+        function startGame() {
+            const nameInput = document.getElementById('player-name').value.trim();
+            if (!nameInput) {
+                showFeedbackToast("⚠️ 請先輸入您的代號或姓名！", "red");
+                return;
+            }
+            gameState.playerName = nameInput;
+            document.getElementById('reveal-username').innerText = nameInput;
+            document.getElementById('cert-name-input').value = nameInput;
+            updateCertName(nameInput);
+
+            // Transition screens
+            transitionScreen('screen-intro', 'screen-game');
+            document.getElementById('game-stats').classList.remove('hidden');
+            
+            // Start level 0
+            gameState.currentLevelIndex = 0;
+            gameState.score = 0;
+            loadLevel();
+        }
+
+        function transitionScreen(fromId, toId) {
+            const fromEl = document.getElementById(fromId);
+            const toEl = document.getElementById(toId);
+            
+            fromEl.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                fromEl.classList.add('hidden');
+                toEl.classList.remove('hidden');
+                // Force layout reflow
+                toEl.offsetHeight;
+                toEl.classList.remove('opacity-0', 'scale-95');
+                toEl.classList.add('opacity-100', 'scale-100');
+            }, 300);
+        }
+
+        // Load Level Content
+        let currentSubStep = 0; // 0 for main question, 1 for followUp
+        let selectedOptionData = null;
+
+        function loadLevel() {
+            const level = levels[gameState.currentLevelIndex];
+            currentSubStep = 0;
+            selectedOptionData = null;
+
+            // Update Level Header
+            document.getElementById('level-badge').innerText = `關卡 ${gameState.currentLevelIndex + 1}`;
+            document.getElementById('level-title').innerText = level.title;
+            document.getElementById('stat-level').innerText = `關卡 ${gameState.currentLevelIndex + 1}/3`;
+
+            // Reset Footer Navigation
+            const nextBtn = document.getElementById('next-level-btn');
+            nextBtn.disabled = true;
+            nextBtn.className = "bg-slate-200 text-slate-400 cursor-not-allowed font-bold py-2.5 px-6 rounded-lg transition-all text-sm flex items-center space-x-1 shadow-sm";
+
+            // Render Mentor Question
+            document.getElementById('mentor-bubble').innerText = level.mentorSpeech;
+            document.getElementById('scenario-preview-box').innerHTML = `<div class="text-slate-400 text-xs italic">等待設計中... 請選擇以下黑心方案</div>`;
+
+            // Render Choices
+            renderOptions(level.options);
+        }
+
+        function renderOptions(optionsArray) {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            optionsArray.forEach((option, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-white border border-slate-200 text-left p-4 rounded-xl hover:bg-slate-50 hover:border-purple-400/60 transition-all duration-300 focus:outline-none flex items-start space-x-3 group active:scale-[0.99] shadow-sm";
+                btn.onclick = () => selectOption(idx, optionsArray);
+                
+                // Index badge
+                const badge = document.createElement('span');
+                badge.className = "w-6 h-6 rounded-full bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center shrink-0 group-hover:bg-purple-500 group-hover:text-white transition-all border border-slate-200";
+                badge.innerText = String.fromCharCode(65 + idx); // A, B, C...
+
+                const textSpan = document.createElement('span');
+                textSpan.className = "text-slate-600 group-hover:text-slate-800 text-sm leading-relaxed font-medium";
+                textSpan.innerText = option.text;
+
+                btn.appendChild(badge);
+                btn.appendChild(textSpan);
+                container.appendChild(btn);
+            });
+        }
+
+        // Handle Choice Selection
+        function selectOption(index, optionsArray) {
+            const option = optionsArray[index];
+            selectedOptionData = option;
+
+            // Trigger visual feedback
+            document.getElementById('mentor-bubble').innerHTML = `
+                <span class="text-xs text-yellow-600 font-mono font-bold block mb-1">評估回饋：</span>
+                ${option.feedback}
+            `;
+            
+            // Render Live Preview
+            document.getElementById('scenario-preview-box').innerHTML = option.preview;
+
+            gameState.chosenPreviews[gameState.currentLevelIndex] = {
+                title: levels[gameState.currentLevelIndex].title,
+                preview: option.preview
+            };
+
+            // Recalculate and anim score
+            if (currentSubStep === 0) {
+                // Main choice score calculation
+                gameState.score += option.efficiency;
+            } else {
+                // Sub choice score calculation
+                gameState.score += option.efficiency;
+            }
+            updateScoreUI();
+
+            // Enable Next Button
+            const nextBtn = document.getElementById('next-level-btn');
+            nextBtn.disabled = false;
+            nextBtn.className = "bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-500 hover:to-emerald-400 text-white font-black py-2.5 px-6 rounded-lg transition-all text-sm flex items-center space-x-1 shadow-lg animate-pulse";
+        }
+
+        // Update Progress Bar & Score Display
+        function updateScoreUI() {
+            // Cap visual score at max possible (which is 100% scaled)
+            const maxScorePerLevel = 100;
+            const currentMaxPossible = (gameState.currentLevelIndex + 1) * maxScorePerLevel;
+            const percentage = Math.min(100, Math.round((gameState.score / currentMaxPossible) * 100));
+
+            document.getElementById('scam-efficiency-bar').style.width = `${percentage}%`;
+            document.getElementById('scam-score-text').innerText = `${percentage}%`;
+            document.getElementById('current-efficiency-score').innerText = `${percentage}%`;
+        }
+
+        // Handle Level Progression
+        function handleNextStep() {
+            const level = levels[gameState.currentLevelIndex];
+            
+            // If the current level has a viral follow up and we haven't done it yet
+            if (level.followUp && currentSubStep === 0) {
+                currentSubStep = 1;
+                selectedOptionData = null;
+                
+                // Load follow up speech
+                document.getElementById('mentor-bubble').innerText = level.followUp.mentorSpeech;
+                
+                // Reset next button
+                const nextBtn = document.getElementById('next-level-btn');
+                nextBtn.disabled = true;
+                nextBtn.className = "bg-slate-200 text-slate-400 cursor-not-allowed font-bold py-2.5 px-6 rounded-lg transition-all text-sm flex items-center space-x-1";
+
+                // Render follow up options
+                renderOptions(level.followUp.options);
+                return;
+            }
+
+            // Proceed to next major level
+            if (gameState.currentLevelIndex < levels.length - 1) {
+                gameState.currentLevelIndex++;
+                loadLevel();
+                showFeedbackToast(`🚪 前進至第 ${gameState.currentLevelIndex + 1} 關！`);
+            } else {
+                // Game Over - Show Reveal/Awakening screen
+                transitionScreen('screen-game', 'screen-reveal');
+                document.getElementById('game-stats').classList.add('hidden');
+            }
+        }
+
+        // Transitions to Certificate Screen
+        function goToCertificateScreen() {
+            transitionScreen('screen-reveal', 'screen-certificate');
+            // Populate defaults
+            document.getElementById('cert-name-input').value = gameState.playerName;
+            updateCertName(gameState.playerName);
+
+            const exhibitsContainer = document.getElementById('cert-scam-exhibits');
+            exhibitsContainer.innerHTML = '';
+
+            for (let i = 0; i < levels.length; i++) {
+                const data = gameState.chosenPreviews[i];
+                const col = document.createElement('div');
+                col.className = "border border-slate-200 bg-slate-50/50 rounded p-1 flex flex-col justify-between overflow-hidden max-h-[80px] h-[80px] relative shadow-sm";
+                
+                const title = document.createElement('div');
+                title.className = "text-[6px] font-extrabold text-purple-700 border-b border-purple-100 pb-0.5 mb-1 truncate uppercase tracking-wider";
+                title.innerText = data ? data.title : `未破解模型 ${i+1}`;
+
+                const previewWrapper = document.createElement('div');
+                previewWrapper.className = "scale-[0.55] origin-top transform w-[181%] h-[181%] overflow-hidden leading-none text-[6px]";
+                
+                if (data && data.preview) {
+                    previewWrapper.innerHTML = data.preview;
+                    
+                    // Compact classes for mini exhibits rendering inside certificate
+                    const innerBox = previewWrapper.querySelector('div');
+                    if (innerBox) {
+                        innerBox.className = innerBox.className
+                            .replace(/p-4|p-3|p-2/g, 'p-1')
+                            .replace(/space-y-4|space-y-3|space-y-2/g, 'space-y-0.5')
+                            .replace(/mt-4|mt-2/g, 'mt-0')
+                            .replace(/text-xs/g, 'text-[6px]')
+                            .replace(/text-sm/g, 'text-[7px]');
+                            
+                        // Also style buttons and inputs internally to fit
+                        const buttons = innerBox.querySelectorAll('button, input');
+                        buttons.forEach(el => {
+                            el.className = el.className
+                                .replace(/py-1|py-2|p-1/g, 'py-0.5 px-1')
+                                .replace(/text-\[9px\]|text-xs/g, 'text-[5px]');
+                        });
+                    }
+                } else {
+                    previewWrapper.innerHTML = `<div class="text-slate-400 italic text-[6px] text-center mt-2">尚未分析</div>`;
+                }
+
+                col.appendChild(title);
+                col.appendChild(previewWrapper);
+                exhibitsContainer.appendChild(col);
+            }
+        }
+
+        // Update name live on the certificate
+        function updateCertName(val) {
+            document.getElementById('cert-player-name').innerText = val || "特攻實習生";
+        }
+
+        // Camera / Webcam Integration
+        async function startCamera() {
+            const video = document.getElementById('webcam-stream');
+            const placeholder = document.getElementById('camera-placeholder');
+            const startBtn = document.getElementById('btn-start-camera');
+            const takeBtn = document.getElementById('btn-take-snapshot');
+            const resetBtn = document.getElementById('btn-reset-camera');
+
+            try {
+                // Request stream
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 640, height: 480 },
+                    audio: false
+                });
+                
+                gameState.cameraStream = stream;
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                document.getElementById('snapshot-preview').classList.add('hidden');
+                
+                // Toggle controls
+                takeBtn.disabled = false;
+                startBtn.classList.add('bg-emerald-600', 'text-white');
+                startBtn.querySelector('span').innerText = "相機已啟動";
+                resetBtn.classList.add('hidden');
+                
+                showFeedbackToast("📸 相機已成功啟動！請對準臉部拍照。");
+            } catch (err) {
+                console.error("Camera access failed: ", err);
+                showFeedbackToast("❌ 無法取得相機權限。請在下方手動挑選Q版頭像替代！", "red");
+            }
+        }
+
+        function stopCamera() {
+            if (gameState.cameraStream) {
+                gameState.cameraStream.getTracks().forEach(track => track.stop());
+                gameState.cameraStream = null;
+            }
+            const video = document.getElementById('webcam-stream');
+            video.classList.add('hidden');
+            video.srcObject = null;
+
+            const startBtn = document.getElementById('btn-start-camera');
+            if (startBtn) {
+                startBtn.classList.remove('bg-emerald-600', 'text-white');
+                startBtn.querySelector('span').innerText = "啟動相機";
+            }
+        }
+
+        function takeSnapshot() {
+            const video = document.getElementById('webcam-stream');
+            const preview = document.getElementById('snapshot-preview');
+            const certPhoto = document.getElementById('cert-photo');
+            const avatarPlaceholder = document.getElementById('cert-avatar-placeholder');
+            
+            if (!gameState.cameraStream) return;
+
+            // Create temporary canvas to grab the frame
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            
+            // Mirror image for natural selfie feeling
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            
+            // Draw
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Save data URL
+            const dataUrl = canvas.toDataURL('image/png');
+            gameState.selfieDataUrl = dataUrl;
+            
+            // Render inside UI previews
+            preview.src = dataUrl;
+            preview.classList.remove('hidden');
+            
+            certPhoto.src = dataUrl;
+            certPhoto.classList.remove('hidden');
+            avatarPlaceholder.classList.add('hidden'); // Hide the default emoji
+            
+            // Stop camera stream to save power/privacy
+            stopCamera();
+            
+            // UI Controls adjustments
+            document.getElementById('btn-take-snapshot').disabled = true;
+            const resetBtn = document.getElementById('btn-reset-camera');
+            resetBtn.classList.remove('hidden');
+            resetBtn.onclick = () => {
+                startCamera();
+            };
+
+            showFeedbackToast("✨ 拍照成功！已將照片貼入結業證書。");
+        }
+
+        // Download Certificate Image
+        function downloadCertificate() {
+            const target = document.getElementById('certificate-card');
+            showFeedbackToast("⌛ 正在產生高解析度證書，請稍候...");
+
+            // Temporarily scale up for high-res output if needed, or render directly
+            html2canvas(target, {
+                scale: 2, // Double resolution for clear text printing
+                useCORS: true,
+                backgroundColor: null,
+                logging: false
+            }).then(canvas => {
+                try {
+                    // Generate download link
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = `防詐偵探結業證書-${gameState.playerName}.png`;
+                    link.href = dataUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showFeedbackToast("🎉 證書下載成功！快跟好朋友分享你的防詐勳章吧！");
+                } catch (err) {
+                    console.error("Canvas export failed:", err);
+                    showFeedbackToast("❌ 證書轉圖失敗，請直接在螢幕上進行螢幕截圖！", "red");
+                }
+            }).catch(err => {
+                console.error("html2canvas execution failed:", err);
+                showFeedbackToast("❌ 轉檔出錯，請使用手機/平板直接螢幕截圖！", "red");
+            });
+        }
+
+        // Restart Full Game Loop
+        function restartFullGame() {
+            stopCamera();
+            gameState.currentScreen = 'intro';
+            gameState.currentLevelIndex = 0;
+            gameState.score = 0;
+            gameState.selfieDataUrl = null;
+            gameState.selectedAvatar = '🕵️';
+
+            // Reset UI states
+            document.getElementById('cert-photo').classList.add('hidden');
+            document.getElementById('cert-avatar-placeholder').innerHTML = '🕵️';
+            document.getElementById('cert-avatar-placeholder').classList.remove('hidden');
+            document.getElementById('snapshot-preview').classList.add('hidden');
+            document.getElementById('camera-placeholder').classList.remove('hidden');
+            document.getElementById('btn-take-snapshot').disabled = true;
+            document.getElementById('btn-reset-camera').classList.add('hidden');
+
+            // Go back to intro screen
+            transitionScreen('screen-certificate', 'screen-intro');
+        }
+
+        // Custom Beautiful Toast Messages (To replace default alerts)
+        function showFeedbackToast(message, type = "green") {
+            const existing = document.getElementById('custom-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'custom-toast';
+            toast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full text-xs md:text-sm font-bold shadow-2xl transition-all duration-300 z-[100] flex items-center space-x-2 transform translate-y-4 opacity-0 border`;
+            
+            if (type === "green") {
+                toast.classList.add('bg-white', 'text-emerald-700', 'border-emerald-200');
+                toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i> <span>${message}</span>`;
+            } else {
+                toast.classList.add('bg-white', 'text-rose-700', 'border-rose-200');
+                toast.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-500"></i> <span>${message}</span>`;
+            }
+
+            document.body.appendChild(toast);
+            
+            // Animate In
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+            }, 50);
+
+            // Animate Out
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
